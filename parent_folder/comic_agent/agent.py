@@ -2,7 +2,7 @@ from google.adk.agents import Agent
 from .tools import develop_story, generate_panels, narrate_comic, publish_comic
 
 # Define the agent
-comic_agent = Agent(
+root_agent = Agent(
     name="comic_agent",
     model="gemini-2.0-flash",
     description="An agent that creates multimedia 4-panel comics based on user input.",
