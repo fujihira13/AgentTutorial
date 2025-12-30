@@ -172,18 +172,19 @@ def narrate_comic(story: ComicStory) -> ComicStory:
 def _create_real_audio(text: str, filepath: Path):
     """
     Generates audio using Gemini 2.5 Pro Preview TTS (REST).
+    The API returns raw PCM audio (audio/L16), so we add WAV headers.
     """
+    import struct
+    
     if not GOOGLE_API_KEY:
         raise ValueError("GOOGLE_API_KEY not set in environment variables.")
 
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro-preview-tts:generateContent?key={GOOGLE_API_KEY}"
     
     # Prompt engineering for Japanese + Pauses
-    # We ask the model to act as a narrator or character.
     prompt_text = (
-        f"Please read the following text in Japanese. "
-        f"Insert natural pauses where appropriate (e.g., at newlines or punctuation). "
-        f"Text to read:\n{text}"
+        f"日本語で以下のテキストを読んでください。適切な箇所で自然な間を入れてください。\n"
+        f"読み上げるテキスト:\n{text}"
     )
 
     payload = {
@@ -197,7 +198,7 @@ def _create_real_audio(text: str, filepath: Path):
             "speechConfig": {
                 "voiceConfig": {
                     "prebuiltVoiceConfig": {
-                        "voiceName": "Aoede" # Options: Aoede, Puck, Charon, Fenrir, Kore
+                        "voiceName": "Aoede"
                     }
                 }
             }
@@ -208,19 +209,56 @@ def _create_real_audio(text: str, filepath: Path):
     
     if response.status_code == 200:
         data = response.json()
-        # The audio comes in specific parts
-        # candidates[0].content.parts[0].inlineData.data (base64)
         try:
             candidates = data.get("candidates", [])
             if candidates:
                 parts = candidates[0].get("content", {}).get("parts", [])
                 for part in parts:
                     if "inlineData" in part:
-                         audio_b64 = part["inlineData"]["data"]
-                         with open(filepath, "wb") as f:
-                             f.write(base64.b64decode(audio_b64))
-                         logger.info(f"Generated Gemini TTS audio for: {filepath}")
-                         return
+                        mime_type = part["inlineData"].get("mimeType", "")
+                        raw_audio = base64.b64decode(part["inlineData"]["data"])
+                        
+                        # Parse sample rate from MIME type (e.g., "audio/L16;rate=24000")
+                        sample_rate = 24000  # default
+                        if "rate=" in mime_type:
+                            try:
+                                sample_rate = int(mime_type.split("rate=")[1].split(";")[0])
+                            except:
+                                pass
+                        
+                        # Check if already WAV format
+                        if raw_audio[:4] == b'RIFF':
+                            audio_data = raw_audio
+                        else:
+                            # Add WAV header to raw PCM data
+                            channels = 1
+                            bits_per_sample = 16
+                            byte_rate = sample_rate * channels * bits_per_sample // 8
+                            block_align = channels * bits_per_sample // 8
+                            data_size = len(raw_audio)
+                            
+                            wav_header = struct.pack(
+                                '<4sI4s4sIHHIIHH4sI',
+                                b'RIFF',
+                                36 + data_size,
+                                b'WAVE',
+                                b'fmt ',
+                                16,
+                                1,  # PCM format
+                                channels,
+                                sample_rate,
+                                byte_rate,
+                                block_align,
+                                bits_per_sample,
+                                b'data',
+                                data_size
+                            )
+                            audio_data = wav_header + raw_audio
+                        
+                        with open(filepath, "wb") as f:
+                            f.write(audio_data)
+                        logger.info(f"Generated Gemini TTS audio for: {filepath}")
+                        return
             
             logger.error(f"No audio data found in Gemini response: {data}")
             raise Exception("No audio data in response")
