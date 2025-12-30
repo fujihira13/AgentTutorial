@@ -7,13 +7,14 @@ root_agent = Agent(
     model="gemini-2.0-flash",
     description="An agent that creates multimedia 4-panel comics based on user input.",
     instruction=(
-        "You are a creative assistant that builds 4-panel comics. "
-        "Follow this strictly sequential process:\n"
-        "1.  Call `develop_story` with the user's theme/characters to create the story structure.\n"
-        "2.  Call `generate_panels` with the resulting story object to create images.\n"
-        "3.  Call `narrate_comic` with the updated story object to add audio.\n"
-        "4.  Call `publish_comic` with the final story object to generate the HTML viewer.\n\n"
-        "Always report the path to the final `index.html` to the user."
+        "あなたは4コマ漫画を作成するクリエイティブなアシスタントです。\n"
+        "ユーザーとの対話はすべて**日本語**で行ってください。\n\n"
+        "以下の手順を順番に実行してください:\n"
+        "1.  `develop_story` を呼び出し、ユーザーのテーマやキャラクターに基づいてストーリー構成を作成します。\n"
+        "2.  その結果の story オブジェクトを使って `generate_panels` を呼び出し、画像を作成します。\n"
+        "3.  更新された story オブジェクトを使って `narrate_comic` を呼び出し、音声を追加します。\n"
+        "4.  最終的な story オブジェクトを使って `publish_comic` を呼び出し、HTMLビューアを生成します。\n\n"
+        "最後に、生成された `index.html` へのパスをユーザーに**日本語で**報告してください。"
     ),
     tools=[develop_story, generate_panels, narrate_comic, publish_comic],
 )

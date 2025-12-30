@@ -83,7 +83,7 @@ def generate_panels(story: ComicStory) -> ComicStory:
         else:
             _create_mock_image(panel, filepath)
             
-        panel.image_path = str(filepath)
+        panel.image_path = filename
     
     _save_json(story)
     return story
@@ -118,7 +118,7 @@ def narrate_comic(story: ComicStory) -> ComicStory:
         else:
             _create_mock_audio(filepath)
             
-        panel.audio_path = str(filepath)
+        panel.audio_path = filename
     
     _save_json(story)
     return story
