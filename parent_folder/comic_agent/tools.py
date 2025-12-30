@@ -8,7 +8,6 @@ from typing import List, Optional
 from jinja2 import Environment, FileSystemLoader
 
 # Mock dependencies (replace with real APIs later)
-# Mock dependencies (replace with real APIs later)
 from PIL import Image, ImageDraw, ImageFont
 import google.generativeai as genai
 
@@ -19,7 +18,6 @@ logger = logging.getLogger(__name__)
 
 # --- Configuration ---
 OUTPUT_DIR = Path("output")
-USE_REAL_IMAGE_GEN = os.getenv("USE_REAL_IMAGE_GEN", "false").lower() == "true"
 USE_REAL_IMAGE_GEN = os.getenv("USE_REAL_IMAGE_GEN", "false").lower() == "true"
 USE_REAL_TTS = os.getenv("USE_REAL_TTS", "false").lower() == "true"
 
@@ -86,7 +84,6 @@ def generate_panels(story: ComicStory) -> ComicStory:
         filepath = OUTPUT_DIR / filename
         
         if USE_REAL_IMAGE_GEN:
-        if USE_REAL_IMAGE_GEN:
             try:
                 _create_real_image(panel, filepath)
             except Exception as e:
@@ -118,19 +115,27 @@ def _create_real_image(panel: Panel, filepath: Path):
     """
     logger.info(f"Generating image for panel {panel.panel_number} with prompt: {panel.image_prompt}")
     
-    # Use the appropriate model name for "Nano Banana Pro" capabilities
-    # Assuming 'imagen-3.0-generate-001' or similar latest model
-    model = genai.ImageGenerationModel("imagen-3.0-generate-001")
-    
-    response = model.generate_images(
-        prompt=panel.image_prompt,
-        number_of_images=1,
-    )
-    
-    if response.images:
-        response.images[0].save(filepath)
-    else:
-        raise Exception("No images returned from API")
+    # Use Nano Banana Pro model
+    try:
+        model = genai.GenerativeModel("models/nano-banana-pro-preview")
+        
+        response = model.generate_content(panel.image_prompt)
+        
+        image_data = None
+        for part in response.parts:
+            if part.inline_data:
+                image_data = part.inline_data.data
+                break
+        
+        if image_data:
+            image = Image.open(io.BytesIO(image_data))
+            image.save(filepath)
+        else:
+            raise Exception("No image data returned from API")
+            
+    except Exception as e:
+        logger.error(f"Error calling Nano Banana Pro: {e}")
+        raise e
 
 # --- 3. Narration (TTS) ---
 
