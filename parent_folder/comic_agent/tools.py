@@ -3,6 +3,8 @@ import io
 import json
 import logging
 import random
+import base64
+import requests
 from pathlib import Path
 from typing import List, Optional
 from jinja2 import Environment, FileSystemLoader
@@ -25,6 +27,9 @@ USE_REAL_TTS = os.getenv("USE_REAL_TTS", "false").lower() == "true"
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 if GOOGLE_API_KEY:
     genai.configure(api_key=GOOGLE_API_KEY)
+
+# Configure TTS (Gemini Native)
+# No extra keys needed now
 
 
 def _ensure_output_dir():
@@ -51,7 +56,7 @@ def develop_story(theme: str, characters: str, tone: str, twist: str) -> ComicSt
         panels.append(Panel(
             panel_number=i,
             scenario=f"{stage} of the story about {theme}. Tone: {tone}.",
-            dialogue=f"Character says something about {theme} ({stage}).",
+            dialogue=f"Character says something about {theme} ({stage}).\nWait, really?", # Added newline for pause test
             visual_description=f"A scene showing {', '.join(char_list)}. {stage} phase.",
             image_prompt=f"Comic panel, {tone}, {stage}, {theme}, characters: {characters}, detailed, 4k",
             image_path=None,
@@ -150,9 +155,12 @@ def narrate_comic(story: ComicStory) -> ComicStory:
         filepath = OUTPUT_DIR / filename
         
         if USE_REAL_TTS:
-            # TODO: Implement real API call (e.g. Google Cloud TTS)
-            logger.warning("Real TTS not implemented yet, using mock.")
-            _create_mock_audio(filepath)
+            try:
+                _create_real_audio(panel.dialogue, filepath)
+            except Exception as e:
+                logger.error(f"Failed to generate TTS for panel {panel.panel_number}: {e}")
+                logger.warning("Falling back to mock audio.")
+                _create_mock_audio(filepath)
         else:
             _create_mock_audio(filepath)
             
@@ -160,6 +168,69 @@ def narrate_comic(story: ComicStory) -> ComicStory:
     
     _save_json(story)
     return story
+
+def _create_real_audio(text: str, filepath: Path):
+    """
+    Generates audio using Gemini 2.5 Pro Preview TTS (REST).
+    """
+    if not GOOGLE_API_KEY:
+        raise ValueError("GOOGLE_API_KEY not set in environment variables.")
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro-preview-tts:generateContent?key={GOOGLE_API_KEY}"
+    
+    # Prompt engineering for Japanese + Pauses
+    # We ask the model to act as a narrator or character.
+    prompt_text = (
+        f"Please read the following text in Japanese. "
+        f"Insert natural pauses where appropriate (e.g., at newlines or punctuation). "
+        f"Text to read:\n{text}"
+    )
+
+    payload = {
+        "contents": [{
+            "parts": [{
+                "text": prompt_text
+            }]
+        }],
+        "generationConfig": {
+            "responseModalities": ["AUDIO"],
+            "speechConfig": {
+                "voiceConfig": {
+                    "prebuiltVoiceConfig": {
+                        "voiceName": "Aoede" # Options: Aoede, Puck, Charon, Fenrir, Kore
+                    }
+                }
+            }
+        }
+    }
+    
+    response = requests.post(url, json=payload)
+    
+    if response.status_code == 200:
+        data = response.json()
+        # The audio comes in specific parts
+        # candidates[0].content.parts[0].inlineData.data (base64)
+        try:
+            candidates = data.get("candidates", [])
+            if candidates:
+                parts = candidates[0].get("content", {}).get("parts", [])
+                for part in parts:
+                    if "inlineData" in part:
+                         audio_b64 = part["inlineData"]["data"]
+                         with open(filepath, "wb") as f:
+                             f.write(base64.b64decode(audio_b64))
+                         logger.info(f"Generated Gemini TTS audio for: {filepath}")
+                         return
+            
+            logger.error(f"No audio data found in Gemini response: {data}")
+            raise Exception("No audio data in response")
+
+        except Exception as e:
+            logger.error(f"Error parsing Gemini TTS response: {e}")
+            raise e
+    else:
+        logger.error(f"Gemini TTS API Error: {response.status_code} - {response.text}")
+        raise Exception(f"TTS API failed with status {response.status_code}")
 
 def _create_mock_audio(filepath: Path):
     """Creates a dummy valid WAV file (1 second of silence)."""

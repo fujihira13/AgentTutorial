@@ -4,3 +4,4 @@ python-dotenv
 Pillow
 jinja2
 pydantic
+requests
