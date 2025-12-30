@@ -76,3 +76,14 @@ adk run comic_agent
 - "Create a comic about a cat who becomes a lawyer."
 - "Theme: Coffee Shop, Characters: Robot and Barista, Tone: Funny"
 
+
+### 生成物について (Outputs)
+
+漫画生成が完了すると、`output/` フォルダに以下のファイルが出力されます。
+
+- `index.html`: ブラウザで閲覧するためのビューア
+- `comic.json`: 生成されたストーリーデータ
+- `panel_*.png`: 各コマの画像
+- `panel_*.wav`: 各コマの音声
+
+**注意**: これらのファイルは、エージェントを実行するたびに**新しい内容で上書きされます**。以前の生成結果を残しておきたい場合は、実行前に `output/` フォルダの名前を変更するか、別の場所にコピーしてください。
