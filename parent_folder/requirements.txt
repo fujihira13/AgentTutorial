@@ -1,4 +1,5 @@
 google-adk
+google-generativeai
 python-dotenv
 Pillow
 jinja2

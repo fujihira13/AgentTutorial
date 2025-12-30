@@ -8,7 +8,9 @@ from typing import List, Optional
 from jinja2 import Environment, FileSystemLoader
 
 # Mock dependencies (replace with real APIs later)
+# Mock dependencies (replace with real APIs later)
 from PIL import Image, ImageDraw, ImageFont
+import google.generativeai as genai
 
 # Local Schema
 from .schemas import ComicStory, Panel
@@ -18,7 +20,14 @@ logger = logging.getLogger(__name__)
 # --- Configuration ---
 OUTPUT_DIR = Path("output")
 USE_REAL_IMAGE_GEN = os.getenv("USE_REAL_IMAGE_GEN", "false").lower() == "true"
+USE_REAL_IMAGE_GEN = os.getenv("USE_REAL_IMAGE_GEN", "false").lower() == "true"
 USE_REAL_TTS = os.getenv("USE_REAL_TTS", "false").lower() == "true"
+
+# Configure Gemini API
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+if GOOGLE_API_KEY:
+    genai.configure(api_key=GOOGLE_API_KEY)
+
 
 def _ensure_output_dir():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -77,9 +86,13 @@ def generate_panels(story: ComicStory) -> ComicStory:
         filepath = OUTPUT_DIR / filename
         
         if USE_REAL_IMAGE_GEN:
-            # TODO: Implement real API call (e.g. Vertex AI Imagen)
-            logger.warning("Real Image Gen not implemented yet, using mock.")
-            _create_mock_image(panel, filepath)
+        if USE_REAL_IMAGE_GEN:
+            try:
+                _create_real_image(panel, filepath)
+            except Exception as e:
+                logger.error(f"Failed to generate image for panel {panel.panel_number}: {e}")
+                logger.warning("Falling back to mock image.")
+                _create_mock_image(panel, filepath)
         else:
             _create_mock_image(panel, filepath)
             
@@ -98,6 +111,26 @@ def _create_mock_image(panel: Panel, filepath: Path):
     d.text((50, 200), text, fill=(255, 255, 0))
     
     img.save(filepath)
+
+def _create_real_image(panel: Panel, filepath: Path):
+    """
+    Generates an image using Nano Banana Pro (Gemini 3 Pro Image).
+    """
+    logger.info(f"Generating image for panel {panel.panel_number} with prompt: {panel.image_prompt}")
+    
+    # Use the appropriate model name for "Nano Banana Pro" capabilities
+    # Assuming 'imagen-3.0-generate-001' or similar latest model
+    model = genai.ImageGenerationModel("imagen-3.0-generate-001")
+    
+    response = model.generate_images(
+        prompt=panel.image_prompt,
+        number_of_images=1,
+    )
+    
+    if response.images:
+        response.images[0].save(filepath)
+    else:
+        raise Exception("No images returned from API")
 
 # --- 3. Narration (TTS) ---
 
