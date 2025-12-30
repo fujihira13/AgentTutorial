@@ -84,10 +84,13 @@ adk web comic_agent
 adk run comic_agent
 ```
 
-### テスト入力例 (Test Prompts)
+### 4コマ漫画の入力例 (Example Inputs)
 
-- "Create a comic about a cat who becomes a lawyer."
-- "Theme: Coffee Shop, Characters: Robot and Barista, Tone: Funny"
+エージェントを起動すると、どのような漫画にしたいか詳しく聞かれます。例えば以下のように入力してください：
+
+- 「猫がいきなり弁護士になる話を作って」
+- 「テーマ：コーヒーショップ、登場人物：ロボットと店員、雰囲気：コメディ」
+- 「宇宙旅行でトラブルが起きるけど、最後はほっこりする話」
 
 
 ### 生成物について (Outputs)
