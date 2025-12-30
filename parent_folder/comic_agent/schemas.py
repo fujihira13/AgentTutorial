@@ -14,5 +14,5 @@ class ComicStory(BaseModel):
     title: str = Field(..., description="Title of the comic strip")
     characters: List[str] = Field(..., description="List of main characters")
     theme: str = Field(..., description="Theme of the comic")
-    panels: List[Panel] = Field(..., description="List of 4 panels making up the story")
+    panels: List[Panel] = Field(..., min_length=4, max_length=4, description="List of exactly 4 panels making up the story")
     output_dir: str = Field("output", description="Directory to save artifacts")

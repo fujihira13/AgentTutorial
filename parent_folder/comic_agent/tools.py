@@ -39,59 +39,85 @@ def _ensure_output_dir():
 
 def develop_story(theme: str, characters: str, tone: str, twist: str) -> ComicStory:
     """
-    4コマ漫画のストーリー構造を生成します。
-    日本語の「起承転結」構造で面白いストーリーを作成します。
+    4コマ漫画のストーリー構造をGeminiを使用して生成します。
+    日本語の「起承転結」構造で、単一パネル画像に適した内容にします。
     """
     _ensure_output_dir()
     
     char_list = [c.strip() for c in characters.split(",")]
-    main_char = char_list[0] if char_list else "主人公"
-    title = f"{theme}～{main_char}の物語～"
     
-    # 起承転結のストーリーテンプレート
-    # テーマに応じて面白いパターンを選択
-    story_patterns = {
-        "default": [
-            {
-                "scenario": f"平和な日常。{main_char}がのんびり過ごしている。",
-                "dialogue": f"今日も平和だなぁ…",
-                "visual": f"{main_char}がリラックスしている様子"
-            },
-            {
-                "scenario": f"突然、{theme}に関する異変が起きる！",
-                "dialogue": f"えっ!? なにこれ!?",
-                "visual": f"{main_char}が驚いている様子"
-            },
-            {
-                "scenario": f"予想外の展開！{twist if twist else '状況がさらに悪化'}する。",
-                "dialogue": f"ちょっと待って！そんなはずは…！",
-                "visual": f"{main_char}がパニック状態"
-            },
-            {
-                "scenario": f"オチ：意外な結末で{main_char}が脱力。",
-                "dialogue": f"…もういいや。",
-                "visual": f"{main_char}が白目で倒れている"
-            }
-        ]
-    }
-    
-    # パターンを選択（将来的にはテーマ別に拡張可能）
-    pattern = story_patterns.get("default")
-    
-    # 起承転結の日本語ラベル
-    stages_jp = ["起", "承", "転", "結"]
-    
-    panels = []
-    for i, (stage, content) in enumerate(zip(stages_jp, pattern), 1):
-        panels.append(Panel(
-            panel_number=i,
-            scenario=f"【{stage}】{content['scenario']}",
-            dialogue=content['dialogue'],
-            visual_description=content['visual'],
-            image_prompt=f"日本の4コマ漫画風、{tone}、{content['visual']}、{theme}、キャラクター：{characters}、シンプルで可愛いイラスト",
-            image_path=None,
-            audio_path=None
-        ))
+    # Prompt for Gemini to generate the story structure
+    prompt = f"""
+あなたはプロの4コマ漫画家です。以下のテーマに基づいて、日本語で面白い4コマ漫画のストーリー（起承転結）を考えてください。
+
+テーマ: {theme}
+登場人物: {characters}
+トーン: {tone}
+追加要素: {twist if twist else "特になし"}
+
+以下の条件を厳守してください：
+1. 必ず正確に4つのコマ（起・承・転・結）で構成すること。
+2. すべて日本語で出力すること。英語は禁止です。
+3. 各コマは単一の場面（single panel）として描きやすい描写にすること。
+4. オチ（結）を面白くすること。
+
+出力は以下のJSONフォーマットのみで行ってください（他のテキストは含めないでください）：
+{{
+  "title": "作品のタイトル",
+  "panels": [
+    {{
+      "panel_number": 1,
+      "scenario": "場面の説明（起）",
+      "dialogue": "キャラクターのセリフ",
+      "visual": "AI画像生成用の具体的な視覚描写（日本語）"
+    }},
+    ...（計4パネル）
+  ]
+}}
+"""
+
+    try:
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        response = model.generate_content(prompt)
+        
+        # Clean response if it contains markdown code blocks
+        text = response.text.strip()
+        if text.startswith("```json"):
+            text = text.split("```json")[1].split("```")[0].strip()
+        elif text.startswith("```"):
+            text = text.split("```")[1].split("```")[0].strip()
+            
+        data = json.loads(text)
+        
+        # 複数パネル化を防ぐための強制プロンプト
+        negative_constraints = "single panel, no grid, no collage, no multiple panels, no storyboard"
+        
+        panels = []
+        for p in data["panels"]:
+            panels.append(Panel(
+                panel_number=p["panel_number"],
+                scenario=p["scenario"],
+                dialogue=p.get("dialogue", ""),
+                visual_description=p["visual"],
+                image_prompt=f"日本の4コマ漫画風、{tone}、{p['visual']}、{theme}、キャラクター：{characters}、シンプルで可愛いイラスト、{negative_constraints}",
+                image_path=None,
+                audio_path=None
+            ))
+
+        story = ComicStory(
+            title=data.get("title", f"{theme}の物語"),
+            characters=char_list,
+            theme=theme,
+            panels=panels,
+            output_dir=str(OUTPUT_DIR)
+        )
+    except Exception as e:
+        logger.error(f"Error in LLM develop_story: {e}")
+        # Fallback (simplified version of previous mock for safety during retry)
+        raise e # Let agent handle it via retry
+
+    _save_json(story)
+    return story
 
     story = ComicStory(
         title=title,
@@ -184,9 +210,14 @@ def narrate_comic(story: ComicStory) -> ComicStory:
         filename = f"panel_{panel.panel_number}.wav"
         filepath = OUTPUT_DIR / filename
         
+        # テキストの整形 (句読点の強調や不要な空白の削除)
+        clean_text = panel.dialogue.strip().replace("\n", "。")
+        if not clean_text.endswith(("。", "！", "？", ".", "!", "?")):
+            clean_text += "。"
+            
         if USE_REAL_TTS:
             try:
-                _create_real_audio(panel.dialogue, filepath)
+                _create_real_audio(clean_text, filepath)
             except Exception as e:
                 logger.error(f"Failed to generate TTS for panel {panel.panel_number}: {e}")
                 logger.warning("Falling back to mock audio.")
@@ -243,55 +274,76 @@ def _create_real_audio(text: str, filepath: Path):
             candidates = data.get("candidates", [])
             if candidates:
                 parts = candidates[0].get("content", {}).get("parts", [])
+                
+                # 複数のパーツがある場合に備え、全オーディオデータを収集
+                raw_audio_list = []
+                sample_rate = 24000  # デフォルト
+                
                 for part in parts:
                     if "inlineData" in part:
                         mime_type = part["inlineData"].get("mimeType", "")
-                        raw_audio = base64.b64decode(part["inlineData"]["data"])
+                        data_chunk = base64.b64decode(part["inlineData"]["data"])
                         
-                        # Parse sample rate from MIME type (e.g., "audio/L16;rate=24000")
-                        sample_rate = 24000  # default
+                        # サンプリングレートをMIMEタイプから取得
                         if "rate=" in mime_type:
                             try:
                                 sample_rate = int(mime_type.split("rate=")[1].split(";")[0])
                             except:
                                 pass
                         
-                        # Check if already WAV format
-                        if raw_audio[:4] == b'RIFF':
-                            audio_data = raw_audio
+                        # すでにWAVヘッダーが含まれている場合はヘッダーを除去し、生PCMデータとして蓄積
+                        # (最初以外のチャンクにヘッダーが含まれる可能性を考慮)
+                        if data_chunk[:4] == b'RIFF':
+                            # WAVヘッダーは通常44バイト
+                            raw_audio_list.append(data_chunk[44:])
                         else:
-                            # Add WAV header to raw PCM data
-                            channels = 1
-                            bits_per_sample = 16
-                            byte_rate = sample_rate * channels * bits_per_sample // 8
-                            block_align = channels * bits_per_sample // 8
-                            data_size = len(raw_audio)
-                            
-                            wav_header = struct.pack(
-                                '<4sI4s4sIHHIIHH4sI',
-                                b'RIFF',
-                                36 + data_size,
-                                b'WAVE',
-                                b'fmt ',
-                                16,
-                                1,  # PCM format
-                                channels,
-                                sample_rate,
-                                byte_rate,
-                                block_align,
-                                bits_per_sample,
-                                b'data',
-                                data_size
-                            )
-                            audio_data = wav_header + raw_audio
-                        
-                        with open(filepath, "wb") as f:
-                            f.write(audio_data)
-                        logger.info(f"Generated Gemini TTS audio for: {filepath}")
-                        return
+                            raw_audio_list.append(data_chunk)
+                
+                if not raw_audio_list:
+                    raise Exception("No inlineData found in any parts of the response")
+                
+                # 全ての生PCMデータを結合
+                all_raw_audio = b"".join(raw_audio_list)
+                data_size = len(all_raw_audio)
+                
+                # 再生時間を計算 (16bit mono)
+                channels = 1
+                bits_per_sample = 16
+                duration_sec = data_size / (sample_rate * channels * (bits_per_sample // 8))
+                
+                logger.info(f"TTS Audio Duration: {duration_sec:.2f} seconds (for text: {text[:30]}...)")
+                if duration_sec < 3.0:
+                    logger.warning(f"Audio duration check: Too short! ({duration_sec:.2f}s). The text might be truncated.")
+                
+                # WAVヘッダーを付けて保存
+                byte_rate = sample_rate * channels * bits_per_sample // 8
+                block_align = channels * bits_per_sample // 8
+                
+                wav_header = struct.pack(
+                    '<4sI4s4sIHHIIHH4sI',
+                    b'RIFF',
+                    36 + data_size,
+                    b'WAVE',
+                    b'fmt ',
+                    16,
+                    1,  # PCM format
+                    channels,
+                    sample_rate,
+                    byte_rate,
+                    block_align,
+                    bits_per_sample,
+                    b'data',
+                    data_size
+                )
+                
+                with open(filepath, "wb") as f:
+                    f.write(wav_header + all_raw_audio)
+                
+                logger.info(f"Generated Gemini TTS audio for: {filepath}")
+                return
             
-            logger.error(f"No audio data found in Gemini response: {data}")
-            raise Exception("No audio data in response")
+            logger.error(f"No candidates found in Gemini response: {data}")
+            raise Exception("No candidates in response")
 
         except Exception as e:
             logger.error(f"Error parsing Gemini TTS response: {e}")
