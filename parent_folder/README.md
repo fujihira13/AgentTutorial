@@ -1,47 +1,48 @@
 # Multi-tool Agent
 
-This project is a multi-tool agent built using the Google ADK, following the [Quickstart guide](https://google.github.io/adk-docs/get-started/quickstart/).
+このプロジェクトは、Google ADKを使用して構築されたマルチツールエージェントです。[クイックスタートガイド](https://google.github.io/adk-docs/get-started/quickstart/)に従って作成されています。
 
-## Setup
+## セットアップ (Setup)
 
-1.  Create a virtual environment:
+1.  仮想環境を作成します:
     ```bash
     python -m venv .venv
     ```
 
-2.  Activate the virtual environment:
+2.  仮想環境を有効化（アクティベート）します:
     - Windows: `.venv\Scripts\activate`
     - Mac/Linux: `source .venv/bin/activate`
 
-3.  Install dependencies:
+3.  依存ライブラリをインストールします:
     ```bash
     pip install google-adk
     ```
 
-4.  Configure Environment Variables:
-    - Copy `.env.example` to `.env`:
+4.  環境変数を設定します:
+    - `.env.example` をコピーして `.env` を作成します:
         - Windows: `copy .env.example .env`
         - Mac/Linux: `cp .env.example .env`
-    - Open `.env` and add your Gemni API key to `GOOGLE_API_KEY`.
+    - `.env` ファイルを開き、`GOOGLE_API_KEY` にあなたの Gemini API キーを入力してください。
 
-## Running the Agent
+## エージェントの実行 (Running the Agent)
 
-You can run the agent using the ADK CLI.
+ADK CLIを使用してエージェントを実行できます。
 
-To start the web UI:
+Web UIを起動する場合:
 ```bash
 adk web
-# OR specifying the path
+# またはパスを指定する場合
 adk web multi_tool_agent
 ```
 
-To run in terminal:
+ターミナルで実行する場合:
 ```bash
 adk run multi_tool_agent
 ```
 
-## Example Prompts
+## プロンプト例 (Example Prompts)
 
-- What is the weather in New York?
-- What is the time in New York?
-- What is the weather in Paris? (Note: This agent only knows New York in the mock implementation)
+- What is the weather in New York? (ニューヨークの天気は？)
+- What is the time in New York? (ニューヨークの時間は？)
+- What is the weather in Paris? (注: このエージェントはモック実装のため、ニューヨークの情報しか持っていません)
+
