@@ -4,46 +4,164 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ story.title }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background-color: #f0f0f0; }
-        .comic-container { display: flex; flex-direction: column; gap: 20px; }
-        .panel { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        .panel-header { display: flex; justify-content: space-between; margin-bottom: 10px; font-weight: bold; color: #555; }
-        .panel-image { width: 100%; height: auto; border: 2px solid #333; }
-        .panel-text { margin-top: 10px; font-size: 1.1em; }
-        .dialogue { font-style: italic; color: #0044cc; }
-        .audio-controls { margin-top: 10px; }
-        h1 { text-align: center; color: #333; }
-        .meta { text-align: center; color: #666; margin-bottom: 30px; }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: 'Zen Maru Gothic', 'Hiragino Kaku Gothic Pro', 'メイリオ', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            color: white;
+            font-size: 2em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .meta {
+            text-align: center;
+            color: rgba(255,255,255,0.9);
+            margin-bottom: 20px;
+            font-size: 0.95em;
+        }
+        
+        /* 4コマ漫画グリッド */
+        .comic-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            background: white;
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+        
+        .panel {
+            background: #fafafa;
+            border: 3px solid #333;
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .panel-header {
+            background: linear-gradient(90deg, #ff6b6b, #feca57);
+            color: white;
+            font-weight: bold;
+            padding: 6px 10px;
+            font-size: 0.85em;
+            text-align: center;
+        }
+        
+        .panel-image-container {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            overflow: hidden;
+        }
+        
+        .panel-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .panel-content {
+            padding: 10px;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        
+        .scenario {
+            font-size: 0.8em;
+            color: #555;
+            line-height: 1.4;
+        }
+        
+        .dialogue {
+            background: linear-gradient(135deg, #fff9c4, #fff59d);
+            border: 2px solid #ffc107;
+            border-radius: 12px;
+            padding: 8px 12px;
+            font-size: 0.9em;
+            font-weight: bold;
+            color: #333;
+            position: relative;
+        }
+        
+        .dialogue::before {
+            content: '💬';
+            position: absolute;
+            top: -10px;
+            left: 10px;
+            font-size: 1.2em;
+        }
+        
+        .audio-controls {
+            margin-top: auto;
+            padding-top: 8px;
+        }
+        
+        .audio-controls audio {
+            width: 100%;
+            height: 32px;
+        }
+        
+        /* レスポンシブ対応 */
+        @media (max-width: 600px) {
+            .comic-grid {
+                grid-template-columns: 1fr;
+            }
+            h1 {
+                font-size: 1.5em;
+            }
+        }
     </style>
 </head>
 <body>
-    <h1>{{ story.title }}</h1>
-    <div class="meta">
-        <p>Theme: {{ story.theme }} | Characters: {{ story.characters | join(', ') }}</p>
-    </div>
-
-    <div class="comic-container">
-        {% for panel in story.panels %}
-        <div class="panel">
-            <div class="panel-header">
-                <span>Panel {{ panel.panel_number }}</span>
-            </div>
-            <img src="{{ panel.image_path }}" alt="{{ panel.visual_description }}" class="panel-image">
-            <div class="panel-text">
-                <p><strong>Scene:</strong> {{ panel.scenario }}</p>
-                {% if panel.dialogue %}
-                <p class="dialogue"><strong>Dialogue:</strong> "{{ panel.dialogue }}"</p>
-                {% endif %}
-            </div>
-            <div class="audio-controls">
-                <audio controls>
-                    <source src="{{ panel.audio_path }}" type="audio/wav">
-                    Your browser does not support the audio element.
-                </audio>
-            </div>
+    <div class="container">
+        <h1>{{ story.title }}</h1>
+        <div class="meta">
+            <p>テーマ：{{ story.theme }} ｜ キャラクター：{{ story.characters | join('、') }}</p>
         </div>
-        {% endfor %}
+
+        <div class="comic-grid">
+            {% for panel in story.panels %}
+            <div class="panel">
+                <div class="panel-header">
+                    第{{ panel.panel_number }}コマ
+                </div>
+                <div class="panel-image-container">
+                    <img src="{{ panel.image_path }}" alt="{{ panel.visual_description }}" class="panel-image">
+                </div>
+                <div class="panel-content">
+                    <p class="scenario">{{ panel.scenario }}</p>
+                    {% if panel.dialogue %}
+                    <div class="dialogue">{{ panel.dialogue }}</div>
+                    {% endif %}
+                    <div class="audio-controls">
+                        <audio controls>
+                            <source src="{{ panel.audio_path }}" type="audio/wav">
+                            お使いのブラウザは音声再生に対応していません。
+                        </audio>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
     </div>
 </body>
 </html>

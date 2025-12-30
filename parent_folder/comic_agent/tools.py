@@ -39,26 +39,56 @@ def _ensure_output_dir():
 
 def develop_story(theme: str, characters: str, tone: str, twist: str) -> ComicStory:
     """
-    Generates a 4-panel comic story structure based on inputs.
-    In a real implementation, this would call an LLM. 
-    Here we implement a robust mock/template generator for MVP.
+    4コマ漫画のストーリー構造を生成します。
+    日本語の「起承転結」構造で面白いストーリーを作成します。
     """
     _ensure_output_dir()
     
     char_list = [c.strip() for c in characters.split(",")]
-    title = f"{theme} with {char_list[0]}" if char_list else f"{theme} Story"
+    main_char = char_list[0] if char_list else "主人公"
+    title = f"{theme}～{main_char}の物語～"
     
-    # Mock Story Generation logic
+    # 起承転結のストーリーテンプレート
+    # テーマに応じて面白いパターンを選択
+    story_patterns = {
+        "default": [
+            {
+                "scenario": f"平和な日常。{main_char}がのんびり過ごしている。",
+                "dialogue": f"今日も平和だなぁ…",
+                "visual": f"{main_char}がリラックスしている様子"
+            },
+            {
+                "scenario": f"突然、{theme}に関する異変が起きる！",
+                "dialogue": f"えっ!? なにこれ!?",
+                "visual": f"{main_char}が驚いている様子"
+            },
+            {
+                "scenario": f"予想外の展開！{twist if twist else '状況がさらに悪化'}する。",
+                "dialogue": f"ちょっと待って！そんなはずは…！",
+                "visual": f"{main_char}がパニック状態"
+            },
+            {
+                "scenario": f"オチ：意外な結末で{main_char}が脱力。",
+                "dialogue": f"…もういいや。",
+                "visual": f"{main_char}が白目で倒れている"
+            }
+        ]
+    }
+    
+    # パターンを選択（将来的にはテーマ別に拡張可能）
+    pattern = story_patterns.get("default")
+    
+    # 起承転結の日本語ラベル
+    stages_jp = ["起", "承", "転", "結"]
+    
     panels = []
-    stages = ["Introduction", "Build-up", "Climax", "Punchline"]
-    
-    for i, stage in enumerate(stages, 1):
+    for i, (stage, content) in enumerate(zip(stages_jp, pattern), 1):
         panels.append(Panel(
             panel_number=i,
-            scenario=f"{stage} of the story about {theme}. Tone: {tone}.",
-            dialogue=f"Character says something about {theme} ({stage}).\nWait, really?", # Added newline for pause test
-            visual_description=f"A scene showing {', '.join(char_list)}. {stage} phase.",
-            image_prompt=f"Comic panel, {tone}, {stage}, {theme}, characters: {characters}, detailed, 4k",
+            scenario=f"【{stage}】{content['scenario']}",
+            dialogue=content['dialogue'],
+            visual_description=content['visual'],
+            image_prompt=f"日本の4コマ漫画風、{tone}、{content['visual']}、{theme}、キャラクター：{characters}、シンプルで可愛いイラスト",
             image_path=None,
             audio_path=None
         ))
