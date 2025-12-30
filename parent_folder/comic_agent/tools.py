@@ -39,85 +39,53 @@ def _ensure_output_dir():
 
 def develop_story(theme: str, characters: str, tone: str, twist: str) -> ComicStory:
     """
-    4コマ漫画のストーリー構造をGeminiを使用して生成します。
-    日本語の「起承転結」構造で、単一パネル画像に適した内容にします。
+    4コマ漫画のストーリー構造を生成します。
+    日本語の「起承転結」構造でテンプレートベースのストーリーを作成します。
     """
     _ensure_output_dir()
     
     char_list = [c.strip() for c in characters.split(",")]
+    main_char = char_list[0] if char_list else "主人公"
+    title = f"{theme}～{main_char}の物語～"
     
-    # Prompt for Gemini to generate the story structure
-    prompt = f"""
-あなたはプロの4コマ漫画家です。以下のテーマに基づいて、日本語で面白い4コマ漫画のストーリー（起承転結）を考えてください。
-
-テーマ: {theme}
-登場人物: {characters}
-トーン: {tone}
-追加要素: {twist if twist else "特になし"}
-
-以下の条件を厳守してください：
-1. 必ず正確に4つのコマ（起・承・転・結）で構成すること。
-2. すべて日本語で出力すること。英語は禁止です。
-3. 各コマは単一の場面（single panel）として描きやすい描写にすること。
-4. オチ（結）を面白くすること。
-
-出力は以下のJSONフォーマットのみで行ってください（他のテキストは含めないでください）：
-{{
-  "title": "作品のタイトル",
-  "panels": [
-    {{
-      "panel_number": 1,
-      "scenario": "場面の説明（起）",
-      "dialogue": "キャラクターのセリフ",
-      "visual": "AI画像生成用の具体的な視覚描写（日本語）"
-    }},
-    ...（計4パネル）
-  ]
-}}
-"""
-
-    try:
-        model = genai.GenerativeModel("gemini-1.5-flash")
-        response = model.generate_content(prompt)
-        
-        # Clean response if it contains markdown code blocks
-        text = response.text.strip()
-        if text.startswith("```json"):
-            text = text.split("```json")[1].split("```")[0].strip()
-        elif text.startswith("```"):
-            text = text.split("```")[1].split("```")[0].strip()
-            
-        data = json.loads(text)
-        
-        # 複数パネル化を防ぐための強制プロンプト
-        negative_constraints = "single panel, no grid, no collage, no multiple panels, no storyboard"
-        
-        panels = []
-        for p in data["panels"]:
-            panels.append(Panel(
-                panel_number=p["panel_number"],
-                scenario=p["scenario"],
-                dialogue=p.get("dialogue", ""),
-                visual_description=p["visual"],
-                image_prompt=f"日本の4コマ漫画風、{tone}、{p['visual']}、{theme}、キャラクター：{characters}、シンプルで可愛いイラスト、{negative_constraints}",
-                image_path=None,
-                audio_path=None
-            ))
-
-        story = ComicStory(
-            title=data.get("title", f"{theme}の物語"),
-            characters=char_list,
-            theme=theme,
-            panels=panels,
-            output_dir=str(OUTPUT_DIR)
-        )
-    except Exception as e:
-        logger.error(f"Error in LLM develop_story: {e}")
-        # Fallback (simplified version of previous mock for safety during retry)
-        raise e # Let agent handle it via retry
-
-    _save_json(story)
-    return story
+    # 起承転結のストーリーテンプレート
+    story_patterns = [
+        {
+            "scenario": f"【起】平和な日常。{main_char}がのんびり過ごしている。",
+            "dialogue": f"今日も平和だなぁ…",
+            "visual": f"{main_char}がリラックスしている様子"
+        },
+        {
+            "scenario": f"【承】突然、{theme}に関する異変が起きる！",
+            "dialogue": f"えっ!? なにこれ!?",
+            "visual": f"{main_char}が驚いている様子"
+        },
+        {
+            "scenario": f"【転】予想外の展開！{twist if twist else '状況がさらに悪化'}する。",
+            "dialogue": f"ちょっと待って！そんなはずは…！",
+            "visual": f"{main_char}がパニック状態"
+        },
+        {
+            "scenario": f"【結】オチ：意外な結末で{main_char}が脱力。",
+            "dialogue": f"…もういいや。",
+            "visual": f"{main_char}が白目で倒れている"
+        }
+    ]
+    
+    # 複数パネル化を防ぐための強制プロンプト
+    negative_constraints = "single panel, no grid, no collage, no multiple panels, no storyboard"
+    
+    panels = []
+    for i, content in enumerate(story_patterns, 1):
+        panels.append(Panel(
+            panel_number=i,
+            scenario=content['scenario'],
+            dialogue=content['dialogue'],
+            visual_description=content['visual'],
+            image_prompt=f"日本の4コマ漫画風、{tone}、{content['visual']}、{theme}、キャラクター：{characters}、シンプルで可愛いイラスト、{negative_constraints}",
+            image_path=None,
+            audio_path=None
+        ))
 
     story = ComicStory(
         title=title,
@@ -127,8 +95,6 @@ def develop_story(theme: str, characters: str, tone: str, twist: str) -> ComicSt
         output_dir=str(OUTPUT_DIR)
     )
     
-    # In a real agent, we might save this state or pass it object-to-object.
-    # We'll also dump it to JSON for debugging/persistence.
     _save_json(story)
     return story
 
