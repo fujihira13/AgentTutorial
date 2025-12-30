@@ -46,3 +46,33 @@ adk run multi_tool_agent
 - What is the time in New York? (ニューヨークの時間は？)
 - What is the weather in Paris? (注: このエージェントはモック実装のため、ニューヨークの情報しか持っていません)
 
+## 4コマ漫画エージェント (Comic Generator Agent)
+
+4コマ漫画を生成するエージェントです。
+
+### セットアップ (Setup for Comic Agent)
+
+追加の依存ライブラリをインストールしてください:
+```bash
+pip install -r requirements.txt
+```
+
+`.env` ファイルに `USE_REAL_IMAGE_GEN` や `USE_REAL_TTS` の設定を追加できます（`.env.example`参照）。
+
+### 実行方法 (Usage)
+
+Web UIで実行:
+```bash
+adk web comic_agent
+```
+
+ターミナルで実行:
+```bash
+adk run comic_agent
+```
+
+### テスト入力例 (Test Prompts)
+
+- "Create a comic about a cat who becomes a lawyer."
+- "Theme: Coffee Shop, Characters: Robot and Barista, Tone: Funny"
+

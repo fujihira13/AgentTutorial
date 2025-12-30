@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ story.title }}</title>
+    <style>
+        body { font-family: sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background-color: #f0f0f0; }
+        .comic-container { display: flex; flex-direction: column; gap: 20px; }
+        .panel { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .panel-header { display: flex; justify-content: space-between; margin-bottom: 10px; font-weight: bold; color: #555; }
+        .panel-image { width: 100%; height: auto; border: 2px solid #333; }
+        .panel-text { margin-top: 10px; font-size: 1.1em; }
+        .dialogue { font-style: italic; color: #0044cc; }
+        .audio-controls { margin-top: 10px; }
+        h1 { text-align: center; color: #333; }
+        .meta { text-align: center; color: #666; margin-bottom: 30px; }
+    </style>
+</head>
+<body>
+    <h1>{{ story.title }}</h1>
+    <div class="meta">
+        <p>Theme: {{ story.theme }} | Characters: {{ story.characters | join(', ') }}</p>
+    </div>
+
+    <div class="comic-container">
+        {% for panel in story.panels %}
+        <div class="panel">
+            <div class="panel-header">
+                <span>Panel {{ panel.panel_number }}</span>
+            </div>
+            <img src="{{ panel.image_path }}" alt="{{ panel.visual_description }}" class="panel-image">
+            <div class="panel-text">
+                <p><strong>Scene:</strong> {{ panel.scenario }}</p>
+                {% if panel.dialogue %}
+                <p class="dialogue"><strong>Dialogue:</strong> "{{ panel.dialogue }}"</p>
+                {% endif %}
+            </div>
+            <div class="audio-controls">
+                <audio controls>
+                    <source src="{{ panel.audio_path }}" type="audio/wav">
+                    Your browser does not support the audio element.
+                </audio>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</body>
+</html>

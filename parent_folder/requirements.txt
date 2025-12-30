@@ -1,0 +1,5 @@
+google-adk
+python-dotenv
+Pillow
+jinja2
+pydantic
