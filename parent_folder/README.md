@@ -57,7 +57,20 @@ adk run multi_tool_agent
 pip install -r requirements.txt
 ```
 
-`.env` ファイルに `USE_REAL_IMAGE_GEN` や `USE_REAL_TTS` の設定を追加できます（`.env.example`参照）。
+`.env` ファイルに `USE_REAL_IMAGE_GEN` や `USE_REAL_TTS` の設定を追加・変更してください（`.env.example`参照）。
+
+**使用モデル:**
+- **画像生成**: `models/nano-banana-pro-preview` (Gemini 3 Pro Image)
+- **音声読み上げ**: `gemini-2.5-pro-preview-tts` (Gemini 2.5 Pro)
+
+**設定例 (.env):**
+```ini
+# 画像生成AIを使用する場合
+USE_REAL_IMAGE_GEN=true
+
+# 音声読み上げを使用する場合（Gemini 2.5 Pro Preview）
+USE_REAL_TTS=true
+```
 
 ### 実行方法 (Usage)
 
