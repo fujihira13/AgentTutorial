@@ -117,14 +117,6 @@
             position: relative;
         }
         
-        .dialogue::before {
-            content: '💬';
-            position: absolute;
-            top: -10px;
-            left: 10px;
-            font-size: 1.2em;
-        }
-        
         .audio-controls {
             margin-top: auto;
             padding-top: 8px;
@@ -168,7 +160,8 @@
         </div>
 
         <div class="comic-grid">
-            {% for panel in story.panels %}
+            {% set ordered_panels = panels if panels is defined else story.panels %}
+            {% for panel in ordered_panels %}
             <div class="panel">
                 <div class="panel-header">
                     第{{ panel.panel_number }}コマ

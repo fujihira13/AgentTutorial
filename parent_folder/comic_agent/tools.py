@@ -183,6 +183,15 @@ def _extract_spoken_text(dialogue: str) -> str:
         return ""
     return fallback
 
+def _order_panels_for_output(panels: List[Panel]) -> List[Panel]:
+    if len(panels) != 4:
+        return list(panels)
+    mapping = {panel.panel_number: panel for panel in panels}
+    ordered = [mapping.get(2), mapping.get(1), mapping.get(4), mapping.get(3)]
+    if any(panel is None for panel in ordered):
+        return list(panels)
+    return ordered
+
 def _clean_response_text(text: str) -> str:
     cleaned = (text or "").strip()
     if cleaned.startswith("```json"):
@@ -535,7 +544,7 @@ def generate_panels(story: ComicStory) -> ComicStory:
     else:
         _create_mock_comic_image(story, filepath)
 
-    for panel in story.panels:
+    for panel in _order_panels_for_output(story.panels):
         panel.image_path = None
     story.comic_image_path = filename
 
@@ -549,7 +558,8 @@ def _build_comic_image_prompt(story: ComicStory) -> str:
     characters_label = "、".join(story.characters) if story.characters else "未指定"
     lines = [
         "日本の4コマ漫画風の1枚絵を作成する。",
-        "2x2のグリッドで、左上から右へ、上段1-2、下段3-4の順で配置する。",
+        "2x2のグリッドで、右上・左上・右下・左下の順に物語が進むよう配置する。",
+        "順番を示す数字や「起承転結」などのラベルは画像内に描かない。",
         "各コマは線で区切り、余計なコマや挿入コマは作らない。",
         "全コマで絵柄とキャラクターのデザインを統一する。",
         "吹き出しの文字は必ず日本語にする。英語やローマ字は禁止。",
@@ -567,10 +577,10 @@ def _build_comic_image_prompt(story: ComicStory) -> str:
     else:
         lines.append("- 指定なし。全コマで統一感を保つ。")
     lines.append("各コマの描写:")
-    for panel in story.panels:
+    for panel in _order_panels_for_output(story.panels):
         dialogue = panel.dialogue.strip() if panel.dialogue else "セリフなし"
         lines.append(
-            f"{panel.panel_number}コマ: {panel.visual_description} / セリフ: {dialogue}"
+            f"コマ: {panel.visual_description} / セリフ: {dialogue}"
         )
     return "\n".join(lines)
 
@@ -585,17 +595,21 @@ def _create_mock_comic_image(story: ComicStory, filepath: Path):
     img = Image.new('RGB', (width, height), color=(245, 245, 245))
     draw = ImageDraw.Draw(img)
 
+    position_map = {
+        1: (1, 0),
+        2: (0, 0),
+        3: (1, 1),
+        4: (0, 1),
+    }
+
     for idx, panel in enumerate(story.panels):
-        col = idx % columns
-        row = idx // columns
+        col, row = position_map.get(panel.panel_number, (idx % columns, idx // columns))
         x0 = col * panel_size
         y0 = row * panel_size
         x1 = x0 + panel_size - 1
         y1 = y0 + panel_size - 1
 
         draw.rectangle([x0, y0, x1, y1], outline=(40, 40, 40), width=4, fill=(230, 230, 230))
-        text = f"Panel {panel.panel_number}\n{panel.scenario[:40]}..."
-        draw.text((x0 + 20, y0 + 20), text, fill=(20, 20, 20))
 
     img.save(filepath)
 
@@ -838,7 +852,8 @@ def publish_comic(story: ComicStory) -> str:
     env = Environment(loader=FileSystemLoader(str(template_dir)))
     template = env.get_template("viewer.html")
     
-    html_content = template.render(story=story)
+    ordered_panels = _order_panels_for_output(story.panels)
+    html_content = template.render(story=story, panels=ordered_panels)
     
     output_path = OUTPUT_DIR / "index.html"
     with open(output_path, "w", encoding="utf-8") as f:
