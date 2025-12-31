@@ -106,12 +106,6 @@
             gap: 6px;
         }
         
-        .scenario {
-            font-size: 0.8em;
-            color: #555;
-            line-height: 1.4;
-        }
-        
         .dialogue {
             background: linear-gradient(135deg, #fff9c4, #fff59d);
             border: 2px solid #ffc107;
@@ -180,7 +174,6 @@
                     第{{ panel.panel_number }}コマ
                 </div>
                 <div class="panel-content">
-                    <p class="scenario">{{ panel.scenario }}</p>
                     {% if panel.dialogue %}
                     <div class="dialogue">{{ panel.dialogue }}</div>
                     {% endif %}

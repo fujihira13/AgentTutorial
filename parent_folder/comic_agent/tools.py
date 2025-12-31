@@ -527,6 +527,8 @@ def _build_comic_image_prompt(story: ComicStory) -> str:
         "2x2のグリッドで、左上から右へ、上段1-2、下段3-4の順で配置する。",
         "各コマは線で区切り、余計なコマや挿入コマは作らない。",
         "全コマで絵柄とキャラクターのデザインを統一する。",
+        "吹き出しの文字は必ず日本語にする。英語やローマ字は禁止。",
+        "画像内の看板や文字も日本語のみ。英語は入れない。",
         f"テーマ: {story.theme}",
         f"登場人物: {characters_label}",
         "キャラクターデザイン:",
@@ -541,7 +543,10 @@ def _build_comic_image_prompt(story: ComicStory) -> str:
         lines.append("- 指定なし。全コマで統一感を保つ。")
     lines.append("各コマの描写:")
     for panel in story.panels:
-        lines.append(f"{panel.panel_number}コマ: {panel.visual_description}")
+        dialogue = panel.dialogue.strip() if panel.dialogue else "セリフなし"
+        lines.append(
+            f"{panel.panel_number}コマ: {panel.visual_description} / セリフ: {dialogue}"
+        )
     return "\n".join(lines)
 
 def _create_mock_comic_image(story: ComicStory, filepath: Path):
