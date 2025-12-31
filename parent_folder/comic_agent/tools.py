@@ -89,7 +89,7 @@ def _ensure_output_dir():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 LATIN_LETTER_RE = re.compile(r"[A-Za-z]")
-NEGATIVE_CONSTRAINTS = "single panel, no grid, no collage, no multiple panels, no storyboard"
+PANEL_LAYOUT_HINTS = "4コマ漫画の1コマとして、単一の場面で構成する"
 
 def _note_once(story: ComicStory, note: str) -> None:
     if note and note not in story.generation_notes:
@@ -217,7 +217,7 @@ def _build_story_from_data(
                 "日本の4コマ漫画風、"
                 f"{tone_label}、{visual}、{theme_label}、"
                 f"キャラクター：{characters_label}、"
-                f"シンプルで可愛いイラスト、{NEGATIVE_CONSTRAINTS}"
+                f"シンプルで可愛いイラスト、{PANEL_LAYOUT_HINTS}"
             ),
             image_path=None,
             audio_path=None
@@ -258,7 +258,7 @@ def _build_template_story(
                 "日本の4コマ漫画風、"
                 f"{tone_label}、{content['visual']}、{theme_label}、"
                 f"キャラクター：{characters_label}、"
-                f"シンプルで可愛いイラスト、{NEGATIVE_CONSTRAINTS}"
+                f"シンプルで可愛いイラスト、{PANEL_LAYOUT_HINTS}"
             ),
             image_path=None,
             audio_path=None
@@ -384,7 +384,7 @@ def develop_story(theme: str, characters: str, tone: str, twist: str) -> ComicSt
 
 def generate_panels(story: ComicStory) -> ComicStory:
     """
-    Generates images for each panel in the story.
+    Generates a single 4-panel comic image for the story.
     """
     _ensure_output_dir()
 
@@ -396,45 +396,76 @@ def generate_panels(story: ComicStory) -> ComicStory:
     elif not GOOGLE_API_KEY:
         _note_once(story, "GOOGLE_API_KEYが未設定のため画像生成をモックにフォールバックしました。")
 
+    filename = "comic.png"
+    filepath = OUTPUT_DIR / filename
+
+    if use_real:
+        try:
+            prompt = _build_comic_image_prompt(story)
+            _create_real_comic_image(prompt, filepath)
+        except Exception as e:
+            had_failures = True
+            logger.error(f"Failed to generate comic image: {e}")
+            logger.warning("Falling back to mock comic image.")
+            _create_mock_comic_image(story, filepath)
+    else:
+        _create_mock_comic_image(story, filepath)
+
     for panel in story.panels:
-        filename = f"panel_{panel.panel_number}.png"
-        filepath = OUTPUT_DIR / filename
-
-        if use_real:
-            try:
-                _create_real_image(panel, filepath)
-            except Exception as e:
-                had_failures = True
-                logger.error(f"Failed to generate image for panel {panel.panel_number}: {e}")
-                logger.warning("Falling back to mock image.")
-                _create_mock_image(panel, filepath)
-        else:
-            _create_mock_image(panel, filepath)
-
-        panel.image_path = filename
+        panel.image_path = None
+    story.comic_image_path = filename
 
     if had_failures:
-        _note_once(story, "一部の画像生成に失敗したためモックにフォールバックしました。")
+        _note_once(story, "画像生成に失敗したためモックにフォールバックしました。")
 
     _save_json(story)
     return story
 
-def _create_mock_image(panel: Panel, filepath: Path):
-    """Creates a simple placeholder image using Pillow."""
-    img = Image.new('RGB', (512, 512), color=(73, 109, 137))
-    d = ImageDraw.Draw(img)
-    
-    # Simple logic to center text (rough approximation)
-    text = f"Panel {panel.panel_number}\n{panel.scenario[:50]}..."
-    d.text((50, 200), text, fill=(255, 255, 0))
-    
+def _build_comic_image_prompt(story: ComicStory) -> str:
+    characters_label = "、".join(story.characters) if story.characters else "未指定"
+    lines = [
+        "日本の4コマ漫画風の1枚絵を作成する。",
+        "2x2のグリッドで、左上から右へ、上段1-2、下段3-4の順で配置する。",
+        "各コマは線で区切り、余計なコマや挿入コマは作らない。",
+        "全コマで絵柄とキャラクターのデザインを統一する。",
+        f"テーマ: {story.theme}",
+        f"登場人物: {characters_label}",
+        "各コマの描写:",
+    ]
+    for panel in story.panels:
+        lines.append(f"{panel.panel_number}コマ: {panel.visual_description}")
+    return "\n".join(lines)
+
+def _create_mock_comic_image(story: ComicStory, filepath: Path):
+    """Creates a simple placeholder 4-panel comic image using Pillow."""
+    panel_size = 512
+    columns = 2
+    rows = 2
+    width = panel_size * columns
+    height = panel_size * rows
+
+    img = Image.new('RGB', (width, height), color=(245, 245, 245))
+    draw = ImageDraw.Draw(img)
+
+    for idx, panel in enumerate(story.panels):
+        col = idx % columns
+        row = idx // columns
+        x0 = col * panel_size
+        y0 = row * panel_size
+        x1 = x0 + panel_size - 1
+        y1 = y0 + panel_size - 1
+
+        draw.rectangle([x0, y0, x1, y1], outline=(40, 40, 40), width=4, fill=(230, 230, 230))
+        text = f"Panel {panel.panel_number}\n{panel.scenario[:40]}..."
+        draw.text((x0 + 20, y0 + 20), text, fill=(20, 20, 20))
+
     img.save(filepath)
 
-def _create_real_image(panel: Panel, filepath: Path):
+def _create_real_comic_image(prompt: str, filepath: Path):
     """
-    Generates an image using Nano Banana Pro (Gemini 3 Pro Image).
+    Generates a 4-panel comic image using Nano Banana Pro (Gemini 3 Pro Image).
     """
-    logger.info(f"Generating image for panel {panel.panel_number} with prompt: {panel.image_prompt}")
+    logger.info("Generating 4-panel comic image with prompt: %s", prompt)
 
     if not GOOGLE_API_KEY:
         raise ValueError("GOOGLE_API_KEY not set in environment variables.")
@@ -442,7 +473,7 @@ def _create_real_image(panel: Panel, filepath: Path):
     try:
         model = genai.GenerativeModel(IMAGE_MODEL)
         response = _with_retries(
-            lambda: model.generate_content(panel.image_prompt, request_options=_genai_request_options()),
+            lambda: model.generate_content(prompt, request_options=_genai_request_options()),
             operation="Gemini image generation",
         )
 

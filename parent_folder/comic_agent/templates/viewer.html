@@ -49,15 +49,35 @@
             margin-right: 6px;
         }
         
-        /* 4コマ漫画グリッド */
+        .comic-image-card {
+            background: white;
+            padding: 16px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            margin-bottom: 16px;
+        }
+
+        .comic-image {
+            width: 100%;
+            height: auto;
+            display: block;
+            border: 4px solid #333;
+            border-radius: 8px;
+        }
+
+        .comic-missing {
+            text-align: center;
+            color: #666;
+            padding: 40px 16px;
+            border: 2px dashed #bbb;
+            border-radius: 8px;
+        }
+
+        /* 4コマ詳細 */
         .comic-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            gap: 8px;
-            background: white;
-            padding: 15px;
-            border-radius: 12px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            gap: 12px;
         }
         
         .panel {
@@ -76,19 +96,6 @@
             padding: 6px 10px;
             font-size: 0.85em;
             text-align: center;
-        }
-        
-        .panel-image-container {
-            position: relative;
-            width: 100%;
-            aspect-ratio: 1 / 1;
-            overflow: hidden;
-        }
-        
-        .panel-image {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
         }
         
         .panel-content {
@@ -158,14 +165,19 @@
         </div>
         {% endif %}
 
+        <div class="comic-image-card">
+            {% if story.comic_image_path %}
+            <img src="{{ story.comic_image_path }}" alt="{{ story.title }}" class="comic-image">
+            {% else %}
+            <div class="comic-missing">画像がまだ生成されていません。</div>
+            {% endif %}
+        </div>
+
         <div class="comic-grid">
             {% for panel in story.panels %}
             <div class="panel">
                 <div class="panel-header">
                     第{{ panel.panel_number }}コマ
-                </div>
-                <div class="panel-image-container">
-                    <img src="{{ panel.image_path }}" alt="{{ panel.visual_description }}" class="panel-image">
                 </div>
                 <div class="panel-content">
                     <p class="scenario">{{ panel.scenario }}</p>
