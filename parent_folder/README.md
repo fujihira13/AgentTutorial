@@ -1,6 +1,6 @@
-# Multi-tool Agent
+# 4コマ漫画エージェント
 
-このプロジェクトは、Google ADKを使用して構築されたマルチツールエージェントです。[クイックスタートガイド](https://google.github.io/adk-docs/get-started/quickstart/)に従って作成されています。
+このプロジェクトは、Google ADKを使用して構築された4コマ漫画生成エージェントです。
 
 ## セットアップ (Setup)
 
@@ -15,7 +15,7 @@
 
 3.  依存ライブラリをインストールします:
     ```bash
-    pip install google-adk
+    pip install -r requirements.txt
     ```
 
 4.  環境変数を設定します:
@@ -24,38 +24,11 @@
         - Mac/Linux: `cp .env.example .env`
     - `.env` ファイルを開き、`GOOGLE_API_KEY` にあなたの Gemini API キーを入力してください。
 
-## エージェントの実行 (Running the Agent)
-
-ADK CLIを使用してエージェントを実行できます。
-
-Web UIを起動する場合:
-```bash
-adk web
-# またはパスを指定する場合
-adk web multi_tool_agent
-```
-
-ターミナルで実行する場合:
-```bash
-adk run multi_tool_agent
-```
-
-## プロンプト例 (Example Prompts)
-
-- What is the weather in New York? (ニューヨークの天気は？)
-- What is the time in New York? (ニューヨークの時間は？)
-- What is the weather in Paris? (注: このエージェントはモック実装のため、ニューヨークの情報しか持っていません)
-
 ## 4コマ漫画エージェント (Comic Generator Agent)
 
 4コマ漫画を生成するエージェントです。
 
-### セットアップ (Setup for Comic Agent)
-
-追加の依存ライブラリをインストールしてください:
-```bash
-pip install -r requirements.txt
-```
+### 設定 (Settings)
 
 `.env` ファイルに `USE_REAL_IMAGE_GEN` や `USE_REAL_TTS` の設定を追加・変更してください（`.env.example`参照）。
 
