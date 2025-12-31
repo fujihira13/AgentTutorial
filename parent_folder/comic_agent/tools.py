@@ -15,7 +15,7 @@ from PIL import Image, ImageDraw
 import google.generativeai as genai
 
 # Local Schema
-from .schemas import ComicStory, Panel
+from .schemas import ComicStory, Panel, CharacterDesign
 
 logger = logging.getLogger(__name__)
 
@@ -123,6 +123,35 @@ def _with_retries(fn, *, operation: str):
                 time.sleep(delay)
     raise last_exc
 
+def _story_from_mapping(data: dict) -> ComicStory:
+    try:
+        return ComicStory.model_validate(data)
+    except AttributeError:
+        return ComicStory.parse_obj(data)
+
+def _coerce_story(story_input) -> ComicStory:
+    if isinstance(story_input, ComicStory):
+        return story_input
+    if isinstance(story_input, dict):
+        return _story_from_mapping(story_input)
+    if isinstance(story_input, str):
+        stripped = story_input.strip()
+        data = None
+        if stripped.startswith("{"):
+            try:
+                data = json.loads(stripped)
+            except json.JSONDecodeError:
+                data = None
+        if data is None:
+            possible_path = Path(stripped)
+            if possible_path.is_file():
+                with open(possible_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+        if data is None:
+            raise ValueError("story must be a ComicStory or JSON string.")
+        return _story_from_mapping(data)
+    raise TypeError("story must be a ComicStory, dict, or JSON string.")
+
 def _split_characters(characters: str) -> List[str]:
     if not characters:
         return []
@@ -196,7 +225,62 @@ def _validate_story_data(data: dict) -> List[str]:
             elif dialogue.strip() and not _is_japanese_text(dialogue):
                 errors.append(f"panel {idx} dialogue contains non-Japanese text.")
 
+    character_designs = data.get("character_designs")
+    if not isinstance(character_designs, list):
+        errors.append("character_designs is missing or not a list.")
+        return errors
+
+    if len(character_designs) == 0:
+        errors.append("character_designs is empty.")
+        return errors
+
+    for idx, design in enumerate(character_designs, 1):
+        if not isinstance(design, dict):
+            errors.append(f"character_design {idx} is not an object.")
+            continue
+
+        name = design.get("name")
+        description = design.get("description")
+
+        if not isinstance(name, str) or not name.strip():
+            errors.append(f"character_design {idx} name is missing or empty.")
+        elif not _is_japanese_text(name):
+            errors.append(f"character_design {idx} name contains non-Japanese text.")
+
+        if not isinstance(description, str) or not description.strip():
+            errors.append(f"character_design {idx} description is missing or empty.")
+        elif not _is_japanese_text(description):
+            errors.append(f"character_design {idx} description contains non-Japanese text.")
+
     return errors
+
+def _default_character_designs(char_list: List[str]) -> List[CharacterDesign]:
+    names = char_list or ["主人公"]
+    return [
+        CharacterDesign(
+            name=name,
+            description="髪型・服装・配色などの特徴を全コマで統一する。",
+        )
+        for name in names
+    ]
+
+def _build_character_designs(data: dict, char_list: List[str]) -> List[CharacterDesign]:
+    raw_designs = data.get("character_designs") or []
+    designs: List[CharacterDesign] = []
+
+    if isinstance(raw_designs, list):
+        for item in raw_designs:
+            if not isinstance(item, dict):
+                continue
+            name = str(item.get("name") or "").strip()
+            description = str(item.get("description") or "").strip()
+            if not name:
+                name = "キャラクター"
+            if not description:
+                description = "外見の説明が不足しています。全コマで統一する。"
+            designs.append(CharacterDesign(name=name, description=description))
+
+    return designs or _default_character_designs(char_list)
 
 def _build_story_from_data(
     data: dict,
@@ -223,11 +307,14 @@ def _build_story_from_data(
             audio_path=None
         ))
 
+    character_designs = _build_character_designs(data, char_list)
+
     return ComicStory(
         title=data.get("title", f"{theme_label}の物語"),
         characters=char_list,
         theme=theme_label,
         panels=panels,
+        character_designs=character_designs,
         output_dir=str(OUTPUT_DIR),
     )
 
@@ -264,11 +351,14 @@ def _build_template_story(
             audio_path=None
         ))
 
+    character_designs = _default_character_designs(char_list)
+
     return ComicStory(
         title=title,
         characters=char_list,
         theme=theme_label,
         panels=panels,
+        character_designs=character_designs,
         output_dir=str(OUTPUT_DIR),
     )
 
@@ -318,11 +408,18 @@ def develop_story(theme: str, characters: str, tone: str, twist: str) -> ComicSt
 1. 必ず正確に4つのコマ（起・承・転・結）で構成すること。
 2. すべて日本語で出力すること。英語は禁止です。
 3. 各コマは単一の場面（single panel）として描きやすい描写にすること。
-4. オチ（結）を面白くすること。
+4. キャラクターデザインを必ず固定し、全コマで同一デザインにすること。
+5. オチ（結）を面白くすること。
 
 出力は以下のJSONフォーマットのみで行ってください（他のテキストは含めないでください）：
 {{
   "title": "作品のタイトル",
+  "character_designs": [
+    {{
+      "name": "キャラクター名",
+      "description": "外見・服装・配色など、デザインを固定するための詳細（日本語）"
+    }}
+  ],
   "panels": [
     {{
       "panel_number": 1,
@@ -386,6 +483,7 @@ def generate_panels(story: ComicStory) -> ComicStory:
     """
     Generates a single 4-panel comic image for the story.
     """
+    story = _coerce_story(story)
     _ensure_output_dir()
 
     use_real = USE_REAL_IMAGE_GEN and bool(GOOGLE_API_KEY)
@@ -430,8 +528,17 @@ def _build_comic_image_prompt(story: ComicStory) -> str:
         "全コマで絵柄とキャラクターのデザインを統一する。",
         f"テーマ: {story.theme}",
         f"登場人物: {characters_label}",
-        "各コマの描写:",
+        "キャラクターデザイン:",
     ]
+    if story.character_designs:
+        for design in story.character_designs:
+            if design.name:
+                lines.append(f"- {design.name}: {design.description}")
+            else:
+                lines.append(f"- {design.description}")
+    else:
+        lines.append("- 指定なし。全コマで統一感を保つ。")
+    lines.append("各コマの描写:")
     for panel in story.panels:
         lines.append(f"{panel.panel_number}コマ: {panel.visual_description}")
     return "\n".join(lines)
@@ -499,6 +606,7 @@ def narrate_comic(story: ComicStory) -> ComicStory:
     """
     Generates audio narration for each panel.
     """
+    story = _coerce_story(story)
     _ensure_output_dir()
 
     use_real = USE_REAL_TTS and bool(GOOGLE_API_KEY)
@@ -691,6 +799,7 @@ def publish_comic(story: ComicStory) -> str:
     Generates the index.html viewer.
     Returns the path to the generated HTML file.
     """
+    story = _coerce_story(story)
     _ensure_output_dir()
     
     template_dir = Path(__file__).parent / "templates"
@@ -707,6 +816,7 @@ def publish_comic(story: ComicStory) -> str:
 
 def _save_json(story: ComicStory):
     """Helper to save the current state of the story to JSON."""
+    story = _coerce_story(story)
     json_path = OUTPUT_DIR / "comic.json"
     with open(json_path, "w", encoding="utf-8") as f:
         f.write(story.model_dump_json(indent=2))
