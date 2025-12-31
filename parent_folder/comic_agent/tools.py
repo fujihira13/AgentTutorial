@@ -192,6 +192,15 @@ def _order_panels_for_output(panels: List[Panel]) -> List[Panel]:
         return list(panels)
     return ordered
 
+def _order_panels_for_reading(panels: List[Panel]) -> List[Panel]:
+    if len(panels) != 4:
+        return list(panels)
+    mapping = {panel.panel_number: panel for panel in panels}
+    ordered = [mapping.get(1), mapping.get(2), mapping.get(3), mapping.get(4)]
+    if any(panel is None for panel in ordered):
+        return list(panels)
+    return ordered
+
 def _clean_response_text(text: str) -> str:
     cleaned = (text or "").strip()
     if cleaned.startswith("```json"):
@@ -544,7 +553,7 @@ def generate_panels(story: ComicStory) -> ComicStory:
     else:
         _create_mock_comic_image(story, filepath)
 
-    for panel in _order_panels_for_output(story.panels):
+    for panel in _order_panels_for_reading(story.panels):
         panel.image_path = None
     story.comic_image_path = filename
 
@@ -558,8 +567,9 @@ def _build_comic_image_prompt(story: ComicStory) -> str:
     characters_label = "、".join(story.characters) if story.characters else "未指定"
     lines = [
         "日本の4コマ漫画風の1枚絵を作成する。",
-        "2x2のグリッドで、右上・左上・右下・左下の順に物語が進むよう配置する。",
-        "順番を示す数字や「起承転結」などのラベルは画像内に描かない。",
+        "2x2のグリッドで、右上→左上→右下→左下の順に物語が進むよう配置する。",
+        "順番を示す数字や「起承転結」などのラベル・見出しは画像内に描かない。",
+        "コマの隅に番号枠やラベル枠を描かない。",
         "各コマは線で区切り、余計なコマや挿入コマは作らない。",
         "全コマで絵柄とキャラクターのデザインを統一する。",
         "吹き出しの文字は必ず日本語にする。英語やローマ字は禁止。",
@@ -577,11 +587,18 @@ def _build_comic_image_prompt(story: ComicStory) -> str:
     else:
         lines.append("- 指定なし。全コマで統一感を保つ。")
     lines.append("各コマの描写:")
-    for panel in _order_panels_for_output(story.panels):
+    panels_by_number = {panel.panel_number: panel for panel in story.panels}
+    position_order = [
+        ("右上", panels_by_number.get(1)),
+        ("左上", panels_by_number.get(2)),
+        ("右下", panels_by_number.get(3)),
+        ("左下", panels_by_number.get(4)),
+    ]
+    for label, panel in position_order:
+        if not panel:
+            continue
         dialogue = panel.dialogue.strip() if panel.dialogue else "セリフなし"
-        lines.append(
-            f"コマ: {panel.visual_description} / セリフ: {dialogue}"
-        )
+        lines.append(f"{label}: {panel.visual_description} / セリフ: {dialogue}")
     return "\n".join(lines)
 
 def _create_mock_comic_image(story: ComicStory, filepath: Path):
