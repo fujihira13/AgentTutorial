@@ -158,6 +158,31 @@ def _split_characters(characters: str) -> List[str]:
     parts = re.split(r"[,\u3001，]", characters)
     return [part.strip() for part in parts if part.strip()]
 
+def _extract_spoken_text(dialogue: str) -> str:
+    if not dialogue:
+        return ""
+    text = dialogue.strip()
+    if not text:
+        return ""
+    def _strip_parenthetical(value: str) -> str:
+        return re.sub(r"[（(][^）)]*[）)]", "", value)
+    segments = re.findall(r"「(.*?)」", text, flags=re.DOTALL)
+    if not segments:
+        segments = re.findall(r"『(.*?)』", text, flags=re.DOTALL)
+    cleaned_segments = []
+    for segment in segments:
+        cleaned = _strip_parenthetical(segment).strip()
+        if cleaned:
+            cleaned_segments.append(cleaned)
+    if cleaned_segments:
+        return "。".join(cleaned_segments)
+    if ("「" in text and "」" in text) or ("『" in text and "』" in text):
+        return ""
+    fallback = _strip_parenthetical(text).strip()
+    if not fallback:
+        return ""
+    return fallback
+
 def _clean_response_text(text: str) -> str:
     cleaned = (text or "").strip()
     if cleaned.startswith("```json"):
@@ -625,7 +650,8 @@ def narrate_comic(story: ComicStory) -> ComicStory:
         _note_once(story, "GOOGLE_API_KEYが未設定のため音声生成をモックにフォールバックしました。")
 
     for panel in story.panels:
-        if not panel.dialogue or not panel.dialogue.strip():
+        spoken_text = _extract_spoken_text(panel.dialogue)
+        if not spoken_text.strip():
             skipped_empty_dialogue = True
             panel.audio_path = None
             continue
@@ -634,7 +660,7 @@ def narrate_comic(story: ComicStory) -> ComicStory:
         filepath = OUTPUT_DIR / filename
 
         # テキストの整形 (句読点の強調や不要な空白の削除)
-        clean_text = panel.dialogue.strip().replace("\n", "。")
+        clean_text = spoken_text.strip().replace("\n", "。")
         if not clean_text.endswith(("。", "！", "？", ".", "!", "?")):
             clean_text += "。"
 
