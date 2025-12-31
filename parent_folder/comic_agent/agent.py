@@ -1,7 +1,9 @@
+import os
 import warnings
-# 不要な警告を非表示にする
-warnings.filterwarnings("ignore", category=FutureWarning)
-warnings.filterwarnings("ignore", category=UserWarning)
+# Optional warning suppression for noisy dependencies.
+if os.getenv("COMIC_SUPPRESS_WARNINGS", "false").lower() == "true":
+    warnings.filterwarnings("ignore", category=FutureWarning)
+    warnings.filterwarnings("ignore", category=UserWarning)
 
 print("\n" + "="*50)
 print(" 🎨 4コマ漫画制作エージェントへようこそ！")

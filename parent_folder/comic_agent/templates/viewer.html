@@ -34,6 +34,20 @@
             margin-bottom: 20px;
             font-size: 0.95em;
         }
+
+        .notice {
+            margin: 0 auto 16px;
+            padding: 10px 14px;
+            background: rgba(255, 255, 255, 0.9);
+            border-left: 4px solid #ff9f43;
+            border-radius: 8px;
+            color: #333;
+            font-size: 0.9em;
+        }
+
+        .notice strong {
+            margin-right: 6px;
+        }
         
         /* 4コマ漫画グリッド */
         .comic-grid {
@@ -137,6 +151,12 @@
         <div class="meta">
             <p>テーマ：{{ story.theme }} ｜ キャラクター：{{ story.characters | join('、') }}</p>
         </div>
+        {% if story.generation_notes %}
+        <div class="notice">
+            <strong>注意:</strong>
+            <span>{{ story.generation_notes | join(' / ') }}</span>
+        </div>
+        {% endif %}
 
         <div class="comic-grid">
             {% for panel in story.panels %}
@@ -152,12 +172,14 @@
                     {% if panel.dialogue %}
                     <div class="dialogue">{{ panel.dialogue }}</div>
                     {% endif %}
+                    {% if panel.audio_path %}
                     <div class="audio-controls">
                         <audio controls>
                             <source src="{{ panel.audio_path }}" type="audio/wav">
                             お使いのブラウザは音声再生に対応していません。
                         </audio>
                     </div>
+                    {% endif %}
                 </div>
             </div>
             {% endfor %}
