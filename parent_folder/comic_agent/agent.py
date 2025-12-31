@@ -1,16 +1,41 @@
 import os
 import warnings
+import click
+from functools import wraps
 # Optional warning suppression for noisy dependencies.
 if os.getenv("COMIC_SUPPRESS_WARNINGS", "false").lower() == "true":
     warnings.filterwarnings("ignore", category=FutureWarning)
     warnings.filterwarnings("ignore", category=UserWarning)
 
-print("\n" + "="*50)
-print(" 🎨 4コマ漫画制作エージェントへようこそ！")
-print("="*50)
-print("どのような4コマ漫画を作りたいか、日本語で入力してください。")
-print("例：「猫が弁護士になる話」「宇宙旅行での失敗談」など")
-print("-" * 50 + "\n")
+WELCOME_MESSAGE = "\n".join([
+    "=" * 50,
+    "4コマ漫画制作エージェントへようこそ！",
+    "=" * 50,
+    "入力例: 「猫が弁護士になる話」「宇宙旅行での失敗談」",
+    "どのような4コマ漫画を作りたいか、日本語で入力してください。",
+    "-" * 50,
+])
+
+def _patch_cli_preamble() -> None:
+    try:
+        from google.adk.cli import cli as adk_cli
+    except Exception:
+        return
+
+    if getattr(adk_cli, "_comic_agent_patched", False):
+        return
+
+    original = adk_cli.run_interactively
+
+    @wraps(original)
+    async def run_interactively_with_preamble(*args, **kwargs):
+        click.echo(WELCOME_MESSAGE)
+        return await original(*args, **kwargs)
+
+    adk_cli.run_interactively = run_interactively_with_preamble
+    adk_cli._comic_agent_patched = True
+
+_patch_cli_preamble()
 
 from google.adk.agents import Agent
 from .tools import develop_story, generate_panels, narrate_comic, publish_comic
@@ -25,12 +50,13 @@ root_agent = Agent(
         "対話はすべて**日本語**で行ってください。\n\n"
         "**開始時のフロー:**\n"
         "1. 起動したら、まずユーザーに挨拶し、これから4コマ漫画を作成することを伝えてください。\n"
-        "2. 次に、どのような漫画にしたいか、以下の情報を入力してもらうよう親切に案内してください：\n"
+        "2. 次に、どのような漫画にしたいか案内してください。入力例は**質問の直前**に日本語で提示します。\n"
         "   - **テーマ** (例: 猫のいたずら、宇宙旅行、日常の失敗)\n"
         "   - **登場人物** (例: 猫と飼い主、ロボット、女子高生)\n"
-        "   - **キャラクターの外見/服装** (例: 赤いパーカー、丸メガネ、青い髪)\n"
         "   - **雰囲気/トーン** (例: コメディ、シリアス、ほのぼの)\n"
-        "   - **意外な展開/オチ** (もしあれば)\n\n"
+        "   - **意外な展開/オチ** (任意)\n"
+        "   - **外見/服装の特徴** (任意・登場人物に含めてもOK)\n\n"
+        "ユーザーの入力が短くても、足りない情報は補完して進めてください。追加の聞き返しは最小限にします。\n\n"
         "**作成フロー:**\n"
         "ユーザーから情報を受け取ったら、以下の手順を実行してください:\n"
         "1.  `develop_story` を呼び出し、ストーリーを構成します。\n"
